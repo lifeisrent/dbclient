@@ -6,7 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 Console.WriteLine("Hello, World!");
 
 //"Server=127.0.0.1;Database=FFU_DB;User Id=sa;Password=Sudo123$;TrustServerCertific"
-
+/*
 var builder = new SqlConnectionStringBuilder
 {
     DataSource = "127.0.0.1",
@@ -16,6 +16,19 @@ var builder = new SqlConnectionStringBuilder
     Encrypt = true,
     TrustServerCertificate = true
 };
+*/
+
+
+var builder = new SqlConnectionStringBuilder
+{
+    DataSource = "(localdb)\\MSSQLLocalDB",
+    InitialCatalog = "Test_ServerDB",
+    IntegratedSecurity = true,
+    Encrypt = true,
+    TrustServerCertificate = false
+};
+
+
 var connectionString = builder.ConnectionString;
 using (var connection = new SqlConnection(connectionString))
 {
