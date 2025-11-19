@@ -40,6 +40,19 @@ using (var connection = new SqlConnection(connectionString))
 
         //get(connection);
         //insert(connection);
+        string query = @"
+                SELECT TOP 10 *
+                FROM TESTCLIENTDB2.Test_ServerDB.dbo.Table1;
+            ";
+
+        using (SqlCommand cmd = new SqlCommand(query, connection))
+        using (SqlDataReader reader = cmd.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                Console.WriteLine($"ID: {reader["id"]}, Timestamp: {reader["timestamp"]}");
+            }
+        }
     }
     catch (Exception ex)
     {
