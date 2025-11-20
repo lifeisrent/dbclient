@@ -1,0 +1,7 @@
+https://zadd.tistory.com/83
+
+하고나서
+
+localdb에서 퀴리문 실행 (티스토리에 있는거)
+
+그리고 새 프로그램에서는 로컬 db에 접속
