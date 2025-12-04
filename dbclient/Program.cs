@@ -21,11 +21,11 @@ var builder = new SqlConnectionStringBuilder
 
 var builder = new SqlConnectionStringBuilder
 {
-    DataSource = "(localdb)\\MSSQLLocalDB",
-    InitialCatalog = "Test_ServerDB",
-    IntegratedSecurity = true,
+    DataSource = "ASUS\\MONITORTF",
+    UserID = "sa",
+    Password = "Dosu123$",
     Encrypt = true,
-    TrustServerCertificate = false
+    TrustServerCertificate = true
 };
 
 
@@ -42,7 +42,7 @@ using (var connection = new SqlConnection(connectionString))
         //insert(connection);
         string query = @"
                 SELECT TOP 10 *
-                FROM TESTCLIENTDB2.Test_ServerDB.dbo.Table1;
+                FROM REMOTE2.NSDB.dbo.DCP;
             ";
 
         using (SqlCommand cmd = new SqlCommand(query, connection))
@@ -50,7 +50,7 @@ using (var connection = new SqlConnection(connectionString))
         {
             while (reader.Read())
             {
-                Console.WriteLine($"ID: {reader["id"]}, Timestamp: {reader["timestamp"]}");
+                Console.WriteLine($"ID: {reader["id"]}");
             }
         }
     }
