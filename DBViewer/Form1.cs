@@ -27,6 +27,28 @@ public partial class Form1 : Form
             TrustServerCertificate = true
         };
         connectionString = builder.ConnectionString;
+        
+        // Add hover effects to buttons
+        SetupButtonHoverEffects();
+    }
+    
+    private void SetupButtonHoverEffects()
+    {
+        // Admin Login button hover
+        btnAdminLogin.MouseEnter += (s, e) => { btnAdminLogin.BackColor = Color.FromArgb(41, 128, 185); };
+        btnAdminLogin.MouseLeave += (s, e) => { btnAdminLogin.BackColor = Color.FromArgb(52, 152, 219); };
+        
+        // Switch to User button hover
+        btnSwitchToUser.MouseEnter += (s, e) => { btnSwitchToUser.BackColor = Color.FromArgb(192, 57, 43); };
+        btnSwitchToUser.MouseLeave += (s, e) => { btnSwitchToUser.BackColor = Color.FromArgb(231, 76, 60); };
+        
+        // Add Table button hover
+        btnAddTable.MouseEnter += (s, e) => { btnAddTable.BackColor = Color.FromArgb(39, 174, 96); };
+        btnAddTable.MouseLeave += (s, e) => { btnAddTable.BackColor = Color.FromArgb(46, 204, 113); };
+        
+        // Remove Table button hover
+        btnRemoveTable.MouseEnter += (s, e) => { btnRemoveTable.BackColor = Color.FromArgb(192, 57, 43); };
+        btnRemoveTable.MouseLeave += (s, e) => { btnRemoveTable.BackColor = Color.FromArgb(231, 76, 60); };
     }
 
     private async void Form1_Load(object sender, EventArgs e)
