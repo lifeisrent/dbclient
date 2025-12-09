@@ -256,6 +256,10 @@ public partial class MainForm : Form
             checkboxPanel.Controls.Clear();
             sensorCheckboxes.Clear();
 
+            // Collect checkboxes into two lists for sorting
+            var activeCheckboxes = new List<CheckBox>();
+            var inactiveCheckboxes = new List<CheckBox>();
+
             while (await reader.ReadAsync())
             {
                 int id = reader.GetInt32(0);
@@ -265,31 +269,63 @@ public partial class MainForm : Form
 
                 var checkbox = new CheckBox
                 {
-                    Text = $"{name}",
+                    Text = isActive ? $"{name}" : $"⊘ {name}",
                     Tag = id,
                     Checked = isActive,
                     Enabled = isActive,
                     AutoSize = false,
                     Width = 220,
                     Height = 28,
-                    Font = new Font("Segoe UI", 9F),
-                    ForeColor = isActive ? Color.FromArgb(200, 200, 210) : Color.FromArgb(100, 100, 110),
+                    Font = new Font("Segoe UI", 9F, isActive ? FontStyle.Regular : FontStyle.Italic),
+                    ForeColor = isActive 
+                        ? Color.FromArgb(200, 200, 210) 
+                        : Color.FromArgb(140, 140, 155),  // Improved visibility for disabled
+                    BackColor = isActive 
+                        ? Color.Transparent 
+                        : Color.FromArgb(28, 28, 38),     // Subtle background for disabled
                     Margin = new Padding(2)
                 };
 
-                // Hover effect
+                // Hover effect for active
                 if (isActive)
                 {
                     checkbox.MouseEnter += (s, e) => checkbox.ForeColor = Color.FromArgb(100, 180, 255);
                     checkbox.MouseLeave += (s, e) => checkbox.ForeColor = Color.FromArgb(200, 200, 210);
+                    activeCheckboxes.Add(checkbox);
+                }
+                else
+                {
+                    inactiveCheckboxes.Add(checkbox);
                 }
 
                 sensorCheckboxes[id] = checkbox;
-                checkboxPanel.Controls.Add(checkbox);
             }
 
+            // Add active checkboxes first (top), then inactive (bottom)
+            foreach (var cb in activeCheckboxes)
+                checkboxPanel.Controls.Add(cb);
+
+            // Add separator if there are both active and inactive
+            if (activeCheckboxes.Count > 0 && inactiveCheckboxes.Count > 0)
+            {
+                var separator = new Label
+                {
+                    Text = "── 비활성 센서 ──",
+                    ForeColor = Color.FromArgb(100, 100, 120),
+                    Font = new Font("Segoe UI", 8F),
+                    Width = 220,
+                    Height = 25,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Margin = new Padding(2, 10, 2, 5)
+                };
+                checkboxPanel.Controls.Add(separator);
+            }
+
+            foreach (var cb in inactiveCheckboxes)
+                checkboxPanel.Controls.Add(cb);
+
             // Update sidebar title with count
-            sidebarTitle.Text = $"📋 센서 목록 ({activeRawIds.Count}/{sensorCheckboxes.Count})";
+            sidebarTitle.Text = $"📋 센서 목록 ({activeCheckboxes.Count}/{sensorCheckboxes.Count})";
         }
         catch (Exception ex)
         {
