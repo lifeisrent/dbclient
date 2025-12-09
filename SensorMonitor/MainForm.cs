@@ -275,14 +275,14 @@ public partial class MainForm : Form
                     Enabled = isActive,
                     AutoSize = false,
                     Width = 220,
-                    Height = 28,
-                    Font = new Font("Segoe UI", 9F, isActive ? FontStyle.Regular : FontStyle.Italic),
+                    Height = 32,
+                    Font = new Font("Segoe UI", 12F, isActive ? FontStyle.Regular : FontStyle.Italic),
                     ForeColor = isActive 
                         ? Color.FromArgb(200, 200, 210) 
-                        : Color.FromArgb(140, 140, 155),  // Improved visibility for disabled
+                        : Color.FromArgb(255, 255, 255),  // White for inactive
                     BackColor = isActive 
                         ? Color.Transparent 
-                        : Color.FromArgb(28, 28, 38),     // Subtle background for disabled
+                        : Color.FromArgb(28, 28, 38),
                     Margin = new Padding(2)
                 };
 
@@ -291,6 +291,17 @@ public partial class MainForm : Form
                 {
                     checkbox.MouseEnter += (s, e) => checkbox.ForeColor = Color.FromArgb(100, 180, 255);
                     checkbox.MouseLeave += (s, e) => checkbox.ForeColor = Color.FromArgb(200, 200, 210);
+                    
+                    // Add event to show/hide sensor card when checkbox state changes
+                    int capturedId = id;  // Capture for closure
+                    checkbox.CheckedChanged += (s, e) =>
+                    {
+                        if (sensorCards.TryGetValue(capturedId, out var card))
+                        {
+                            card.Visible = checkbox.Checked;
+                        }
+                    };
+                    
                     activeCheckboxes.Add(checkbox);
                 }
                 else
