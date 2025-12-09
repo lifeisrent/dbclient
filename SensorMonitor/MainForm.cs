@@ -27,6 +27,10 @@ public partial class MainForm : Form
     private Button btnSwitchToUser;
     private const string ADMIN_ID = "admin";
     private const string ADMIN_PW = "admin123";
+    
+    // Theme
+    private bool isLightTheme = false;
+    private Button btnThemeToggle;
 
     public MainForm()
     {
@@ -49,8 +53,7 @@ public partial class MainForm : Form
     {
         // Form settings
         this.Text = "센서 모니터링 시스템";
-        this.Size = new Size(1400, 900);
-        this.StartPosition = FormStartPosition.CenterScreen;
+        this.WindowState = FormWindowState.Maximized;
         this.BackColor = Color.FromArgb(18, 18, 24);
         this.Font = new Font("Segoe UI", 10F);
         this.DoubleBuffered = true;
@@ -87,7 +90,7 @@ public partial class MainForm : Form
         // Admin Login Button (top right)
         btnAdminLogin = new Button
         {
-            Text = "🔒 관리자 로그인",
+            Text = "🔒 센서 추가",
             Size = new Size(150, 40),
             BackColor = Color.FromArgb(52, 152, 219),
             ForeColor = Color.White,
@@ -116,6 +119,22 @@ public partial class MainForm : Form
         btnSwitchToUser.FlatAppearance.BorderSize = 0;
         btnSwitchToUser.Click += BtnSwitchToUser_Click;
         headerPanel.Controls.Add(btnSwitchToUser);
+
+        // Theme Toggle Button
+        btnThemeToggle = new Button
+        {
+            Text = "☀ 밝은 테마",
+            Size = new Size(120, 40),
+            BackColor = Color.FromArgb(100, 100, 110),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 10F),
+            Cursor = Cursors.Hand,
+            Dock = DockStyle.Right
+        };
+        btnThemeToggle.FlatAppearance.BorderSize = 0;
+        btnThemeToggle.Click += BtnThemeToggle_Click;
+        headerPanel.Controls.Add(btnThemeToggle);
 
         this.Controls.Add(headerPanel);
 
@@ -241,7 +260,7 @@ public partial class MainForm : Form
     {
         using var loginForm = new Form
         {
-            Text = "관리자 로그인",
+            Text = "센서 추가",
             Size = new Size(350, 200),
             StartPosition = FormStartPosition.CenterParent,
             FormBorderStyle = FormBorderStyle.FixedDialog,
@@ -320,6 +339,77 @@ public partial class MainForm : Form
         labelTitle.Text = "🔬 센서 모니터링 대시보드";
     }
 
+    private void BtnThemeToggle_Click(object? sender, EventArgs e)
+    {
+        isLightTheme = !isLightTheme;
+        ApplyTheme();
+    }
+
+    private void ApplyTheme()
+    {
+        if (isLightTheme)
+        {
+            // Light Theme
+            this.BackColor = Color.FromArgb(245, 245, 250);
+            headerPanel.BackColor = Color.FromArgb(255, 255, 255);
+            statusPanel.BackColor = Color.FromArgb(255, 255, 255);
+            sidebarPanel.BackColor = Color.FromArgb(240, 240, 245);
+            checkboxPanel.BackColor = Color.FromArgb(240, 240, 245);
+            sensorPanel.BackColor = Color.FromArgb(245, 245, 250);
+            
+            labelTitle.ForeColor = Color.FromArgb(30, 80, 150);
+            labelLastUpdate.ForeColor = Color.FromArgb(100, 100, 110);
+            labelStatus.ForeColor = Color.FromArgb(80, 80, 90);
+            sidebarTitle.ForeColor = Color.FromArgb(30, 80, 150);
+            
+            btnThemeToggle.Text = "🌙 어두운 테마";
+            btnThemeToggle.BackColor = Color.FromArgb(60, 60, 70);
+            
+            // Update sensor cards
+            foreach (var card in sensorCards.Values)
+            {
+                card.ApplyLightTheme();
+            }
+            
+            // Update checkboxes
+            foreach (var cb in sensorCheckboxes.Values)
+            {
+                cb.ForeColor = Color.FromArgb(30, 30, 40);
+                cb.BackColor = Color.Transparent;
+            }
+        }
+        else
+        {
+            // Dark Theme
+            this.BackColor = Color.FromArgb(18, 18, 24);
+            headerPanel.BackColor = Color.FromArgb(25, 25, 35);
+            statusPanel.BackColor = Color.FromArgb(25, 25, 35);
+            sidebarPanel.BackColor = Color.FromArgb(22, 22, 32);
+            checkboxPanel.BackColor = Color.FromArgb(22, 22, 32);
+            sensorPanel.BackColor = Color.FromArgb(18, 18, 24);
+            
+            labelTitle.ForeColor = Color.FromArgb(100, 180, 255);
+            labelLastUpdate.ForeColor = Color.FromArgb(150, 150, 160);
+            labelStatus.ForeColor = Color.FromArgb(150, 150, 160);
+            sidebarTitle.ForeColor = Color.FromArgb(100, 180, 255);
+            
+            btnThemeToggle.Text = "☀ 밝은 테마";
+            btnThemeToggle.BackColor = Color.FromArgb(100, 100, 110);
+            
+            // Update sensor cards
+            foreach (var card in sensorCards.Values)
+            {
+                card.ApplyDarkTheme();
+            }
+            
+            // Update checkboxes
+            foreach (var cb in sensorCheckboxes.Values)
+            {
+                cb.ForeColor = Color.FromArgb(200, 200, 210);
+                cb.BackColor = Color.Transparent;
+            }
+        }
+    }
 
     private async Task LoadSidebarAsync()
     {
@@ -774,5 +864,19 @@ public class SensorCard : Panel
                 lblValue.ForeColor = Color.FromArgb(255, 200, 100);
                 break;
         }
+    }
+
+    public void ApplyLightTheme()
+    {
+        this.BackColor = Color.FromArgb(255, 255, 255);
+        lblName.ForeColor = Color.FromArgb(30, 30, 40);
+        lblTime.ForeColor = Color.FromArgb(100, 100, 110);
+    }
+
+    public void ApplyDarkTheme()
+    {
+        this.BackColor = Color.FromArgb(30, 30, 42);
+        lblName.ForeColor = Color.FromArgb(220, 220, 240);
+        lblTime.ForeColor = Color.FromArgb(120, 120, 140);
     }
 }
