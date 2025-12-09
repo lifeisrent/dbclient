@@ -50,41 +50,79 @@ class Program
 
     private static void RunOnce()
     {
-        // 윈폼과 동일한 문자열 사용
         var connectionString = Builder.ConnectionString;
 
         using var connection = new SqlConnection(connectionString);
         connection.Open();
 
-        // 윈폼의 CreateMonitorTableAsync 에 있던 DB 전환 로직 그대로
-        TrySwitchToNSDB(connection);
+        // 필요하면 여기서 master / NSDB 전환
+        // TrySwitchToNSDB(connection);  // MONITOR_DCP를 master에 둘 거면 이건 빼라.
 
         // 테이블 이름 결정 (현재달 -> 이전달 -> fallback)
         string tableName = ResolveSourceTableName(connection);
 
-        //Console.WriteLine($"  Target Database: {connection.Database}");
-        //Console.WriteLine($"  Source Table   : REMOTE2.NSDB.dbo.[{tableName}]");
-
-        // MONITOR_DCP 생성 쿼리 (네 코드 그대로, 날짜/테이블만 치환)
+        // 안전한 MONITOR_DCP 재구성 쿼리 (NEW/OLD 스왑 방식)
         string query = $@"
-IF OBJECT_ID('dbo.MONITOR_DCP', 'U') IS NOT NULL
-    DROP TABLE dbo.MONITOR_DCP;
+BEGIN TRY
+    BEGIN TRAN;
 
-WITH RankedData AS (
+    ----------------------------------------------------------------
+    -- 1) 새 데이터용 테이블 MONITOR_DCP_NEW 먼저 만든다
+    ----------------------------------------------------------------
+    IF OBJECT_ID('dbo.MONITOR_DCP_NEW', 'U') IS NOT NULL
+        DROP TABLE dbo.MONITOR_DCP_NEW;
+
+    WITH RankedData AS (
+        SELECT 
+            R.*,
+            ROW_NUMBER() OVER (PARTITION BY R.DCP_ID ORDER BY R.DT DESC) AS rn
+        FROM REMOTE2.NSDB.dbo.[{tableName}] AS R
+    )
     SELECT 
-        R.*,
-        ROW_NUMBER() OVER (PARTITION BY R.DCP_ID ORDER BY R.DT DESC) as rn
-    FROM REMOTE2.NSDB.dbo.[{tableName}] R
-)
-SELECT 
-    D.Name,
-    D.ID, 
-    R.*
-INTO dbo.MONITOR_DCP
-FROM RankedData R
-LEFT JOIN REMOTE2.NSDB.dbo.DCP D ON R.DCP_ID = D.ID
-WHERE R.rn = 1
-ORDER BY R.DT DESC, R.DCP_ID ASC;
+          D.Name
+        , D.ID
+        , R.DCP_ID
+        , R.DT
+        , R.VALUE
+        , R.RAW_VALUE
+        , R.STATUS
+        , R.STATUS_CHANGED
+        , R.rn
+    INTO dbo.MONITOR_DCP_NEW
+    FROM RankedData AS R
+    LEFT JOIN REMOTE2.NSDB.dbo.DCP AS D
+        ON R.DCP_ID = D.ID
+    WHERE R.rn = 1;
+
+    ----------------------------------------------------------------
+    -- 2) 기존 테이블은 이름만 바꿔서 백업으로 빼두고,
+    --    새 테이블을 MONITOR_DCP로 승격
+    ----------------------------------------------------------------
+    IF OBJECT_ID('dbo.MONITOR_DCP_OLD', 'U') IS NOT NULL
+        DROP TABLE dbo.MONITOR_DCP_OLD;
+
+    IF OBJECT_ID('dbo.MONITOR_DCP', 'U') IS NOT NULL
+        EXEC sp_rename 'dbo.MONITOR_DCP', 'MONITOR_DCP_OLD';
+
+    EXEC sp_rename 'dbo.MONITOR_DCP_NEW', 'MONITOR_DCP';
+
+    ----------------------------------------------------------------
+    -- 3) 백업 테이블 삭제 (선택)
+    ----------------------------------------------------------------
+    IF OBJECT_ID('dbo.MONITOR_DCP_OLD', 'U') IS NOT NULL
+        DROP TABLE dbo.MONITOR_DCP_OLD;
+
+    COMMIT TRAN;
+END TRY
+BEGIN CATCH
+    IF @@TRANCOUNT > 0
+        ROLLBACK TRAN;
+
+    IF OBJECT_ID('dbo.MONITOR_DCP_NEW', 'U') IS NOT NULL
+        DROP TABLE dbo.MONITOR_DCP_NEW;
+
+    THROW;
+END CATCH;
 ";
 
         using var cmd = new SqlCommand(query, connection);
