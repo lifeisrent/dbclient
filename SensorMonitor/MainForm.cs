@@ -269,17 +269,17 @@ public partial class MainForm : Form
 
                 var checkbox = new CheckBox
                 {
-                    Text = isActive ? $"{name}" : $"⊘ {name}",
+                    Text = name,
                     Tag = id,
                     Checked = isActive,
-                    Enabled = isActive,
+                    Enabled = true,
                     AutoSize = false,
                     Width = 220,
                     Height = 32,
-                    Font = new Font("Segoe UI", 12F, isActive ? FontStyle.Regular : FontStyle.Italic),
+                    Font = new Font("Segoe UI", 12F),
                     ForeColor = isActive 
                         ? Color.FromArgb(200, 200, 210) 
-                        : Color.FromArgb(255, 255, 255),  // White for inactive
+                        : Color.FromArgb(255, 255, 255),
                     BackColor = isActive 
                         ? Color.Transparent 
                         : Color.FromArgb(28, 28, 38),
@@ -306,6 +306,8 @@ public partial class MainForm : Form
                 }
                 else
                 {
+                    // Prevent state changes for inactive sensors
+                    checkbox.Click += (s, e) => checkbox.Checked = false;
                     inactiveCheckboxes.Add(checkbox);
                 }
 
