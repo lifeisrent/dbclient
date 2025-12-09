@@ -20,6 +20,13 @@ public partial class MainForm : Form
     private Dictionary<int, SensorCard> sensorCards = new();
     private Dictionary<int, CheckBox> sensorCheckboxes = new();
     private HashSet<int> activeRawIds = new();
+    
+    // Admin mode
+    private bool isAdminMode = false;
+    private Button btnAdminLogin;
+    private Button btnSwitchToUser;
+    private const string ADMIN_ID = "admin";
+    private const string ADMIN_PW = "admin123";
 
     public MainForm()
     {
@@ -76,6 +83,39 @@ public partial class MainForm : Form
             Location = new Point(20, 52)
         };
         headerPanel.Controls.Add(labelLastUpdate);
+
+        // Admin Login Button (top right)
+        btnAdminLogin = new Button
+        {
+            Text = "🔒 관리자 로그인",
+            Size = new Size(150, 40),
+            BackColor = Color.FromArgb(52, 152, 219),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 11F),
+            Cursor = Cursors.Hand,
+            Dock = DockStyle.Right
+        };
+        btnAdminLogin.FlatAppearance.BorderSize = 0;
+        btnAdminLogin.Click += BtnAdminLogin_Click;
+        headerPanel.Controls.Add(btnAdminLogin);
+
+        // Switch to User Mode Button (hidden by default)
+        btnSwitchToUser = new Button
+        {
+            Text = "👤 사용자 모드",
+            Size = new Size(150, 40),
+            BackColor = Color.FromArgb(231, 76, 60),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 11F),
+            Cursor = Cursors.Hand,
+            Visible = false,
+            Dock = DockStyle.Right
+        };
+        btnSwitchToUser.FlatAppearance.BorderSize = 0;
+        btnSwitchToUser.Click += BtnSwitchToUser_Click;
+        headerPanel.Controls.Add(btnSwitchToUser);
 
         this.Controls.Add(headerPanel);
 
@@ -149,6 +189,9 @@ public partial class MainForm : Form
         headerPanel.BringToFront();
         statusPanel.BringToFront();
         sidebarPanel.BringToFront();
+        
+        // Hide sidebar by default (user mode)
+        sidebarPanel.Visible = false;
     }
 
     private void SetupTimer()
@@ -193,6 +236,90 @@ public partial class MainForm : Form
             labelStatus.ForeColor = Color.FromArgb(255, 100, 100);
         }
     }
+
+    private void BtnAdminLogin_Click(object? sender, EventArgs e)
+    {
+        using var loginForm = new Form
+        {
+            Text = "관리자 로그인",
+            Size = new Size(350, 200),
+            StartPosition = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            BackColor = Color.FromArgb(30, 30, 40)
+        };
+
+        var lblId = new Label { Text = "아이디:", Location = new Point(20, 25), ForeColor = Color.White, AutoSize = true };
+        var txtId = new TextBox { Location = new Point(100, 22), Width = 200, BackColor = Color.FromArgb(50, 50, 60), ForeColor = Color.White };
+        
+        var lblPw = new Label { Text = "비밀번호:", Location = new Point(20, 60), ForeColor = Color.White, AutoSize = true };
+        var txtPw = new TextBox { Location = new Point(100, 57), Width = 200, UseSystemPasswordChar = true, BackColor = Color.FromArgb(50, 50, 60), ForeColor = Color.White };
+
+        var btnLogin = new Button
+        {
+            Text = "로그인",
+            Location = new Point(100, 100),
+            Size = new Size(100, 35),
+            BackColor = Color.FromArgb(52, 152, 219),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            DialogResult = DialogResult.OK
+        };
+        btnLogin.FlatAppearance.BorderSize = 0;
+
+        var btnCancel = new Button
+        {
+            Text = "취소",
+            Location = new Point(210, 100),
+            Size = new Size(90, 35),
+            BackColor = Color.FromArgb(100, 100, 110),
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            DialogResult = DialogResult.Cancel
+        };
+        btnCancel.FlatAppearance.BorderSize = 0;
+
+        loginForm.Controls.AddRange(new Control[] { lblId, txtId, lblPw, txtPw, btnLogin, btnCancel });
+        loginForm.AcceptButton = btnLogin;
+        loginForm.CancelButton = btnCancel;
+
+        if (loginForm.ShowDialog() == DialogResult.OK)
+        {
+            if (txtId.Text == ADMIN_ID && txtPw.Text == ADMIN_PW)
+            {
+                SwitchToAdminMode();
+            }
+            else
+            {
+                MessageBox.Show("아이디 또는 비밀번호가 올바르지 않습니다.", "로그인 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+    }
+
+    private void BtnSwitchToUser_Click(object? sender, EventArgs e)
+    {
+        SwitchToUserMode();
+    }
+
+    private void SwitchToAdminMode()
+    {
+        isAdminMode = true;
+        sidebarPanel.Visible = true;
+        btnAdminLogin.Visible = false;
+        btnSwitchToUser.Visible = true;
+        labelTitle.Text = "🔬 센서 모니터링 대시보드 (관리자)";
+    }
+
+    private void SwitchToUserMode()
+    {
+        isAdminMode = false;
+        sidebarPanel.Visible = false;
+        btnAdminLogin.Visible = true;
+        btnSwitchToUser.Visible = false;
+        labelTitle.Text = "🔬 센서 모니터링 대시보드";
+    }
+
 
     private async Task LoadSidebarAsync()
     {
