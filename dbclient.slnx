@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="dbclient/dbclient.csproj" />
+  <Project Path="DB_Updater/DB_Updater.csproj" Id="6c94ecd3-76bd-4147-a877-45c826efc900" />
 </Solution>
