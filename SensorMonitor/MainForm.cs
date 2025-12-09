@@ -62,7 +62,7 @@ public partial class MainForm : Form
         headerPanel = new Panel
         {
             Dock = DockStyle.Top,
-            Height = 80,
+            Height = 100,  // Increased height to fix clipping
             BackColor = Color.FromArgb(25, 25, 35),
             Padding = new Padding(20)
         };
@@ -73,7 +73,7 @@ public partial class MainForm : Form
             Font = new Font("Segoe UI", 22F, FontStyle.Bold),
             ForeColor = Color.FromArgb(100, 180, 255),
             AutoSize = true,
-            Location = new Point(20, 20)
+            Location = new Point(20, 15)  // Adjusted Y
         };
         headerPanel.Controls.Add(labelTitle);
 
@@ -83,7 +83,7 @@ public partial class MainForm : Form
             Font = new Font("Segoe UI", 10F),
             ForeColor = Color.FromArgb(150, 150, 160),
             AutoSize = true,
-            Location = new Point(20, 52)
+            Location = new Point(20, 60)  // Adjusted Y
         };
         headerPanel.Controls.Add(labelLastUpdate);
 
@@ -198,7 +198,7 @@ public partial class MainForm : Form
             Dock = DockStyle.Fill,
             BackColor = Color.FromArgb(18, 18, 24),
             AutoScroll = true,
-            Padding = new Padding(15),
+            Padding = new Padding(30), // Increased padding to prevent clipping of top cards
             WrapContents = true
         };
 
