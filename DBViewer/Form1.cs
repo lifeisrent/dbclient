@@ -61,6 +61,150 @@ public partial class Form1 : Form
         
         // Load all tables from database
         await LoadAllTablesAsync();
+
+        // Setup dynamic UI elements
+        SetupDynamicUI();
+    }
+
+    private void SetupDynamicUI()
+    {
+        // Create a new button for updating the Monitor table
+        var btnUpdateMonitor = new Button
+        {
+            Text = "Update Monitor Table",
+            Size = new Size(150, 30),
+            Location = new Point(btnAddTable.Left - 160, btnAddTable.Top),
+            BackColor = Color.FromArgb(142, 68, 173), // Purple
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat
+        };
+        
+        btnUpdateMonitor.FlatAppearance.BorderSize = 0;
+        btnUpdateMonitor.MouseEnter += (s, e) => { btnUpdateMonitor.BackColor = Color.FromArgb(155, 89, 182); };
+        btnUpdateMonitor.MouseLeave += (s, e) => { btnUpdateMonitor.BackColor = Color.FromArgb(142, 68, 173); };
+        
+        btnUpdateMonitor.Click += async (s, e) => await CreateMonitorTableAsync();
+        
+        this.Controls.Add(btnUpdateMonitor);
+        
+        // Ensure it appears on top in Z-order if needed, though adding last usually puts it at top
+        btnUpdateMonitor.BringToFront();
+    }
+
+    private async Task CreateMonitorTableAsync()
+    {
+        if (connection == null || connection.State != ConnectionState.Open)
+        {
+            MessageBox.Show("Database not connected.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        try
+        {
+            // Try to switch to NSDB locally if it exists, to avoid creating tables in master
+            // This is a best-effort attempt.
+            try 
+            {
+                if (connection.Database == "master")
+                {
+                    await using var cmdCheck = new SqlCommand("SELECT database_id FROM sys.databases WHERE name = 'NSDB'", connection);
+                    if (await cmdCheck.ExecuteScalarAsync() != null)
+                    {
+                        connection.ChangeDatabase("NSDB");
+                    }
+                }
+            } 
+            catch { /* Ignore if switching fails, proceed in current DB */ }
+
+            labelStatus.Text = "Updating MONITOR_DCP table...";
+            
+            var currentMonth = DateTime.Now;
+            string tableName = $"H01RAW_{currentMonth:yyyyMM}";
+            
+            // Check availability - using remote check
+            if (!await TableExistsAsync(tableName))
+            {
+               var prevMonth = currentMonth.AddMonths(-1);
+               var prevTableName = $"H01RAW_{prevMonth:yyyyMM}";
+               if (await TableExistsAsync(prevTableName))
+               {
+                   tableName = prevTableName;
+               }
+               else
+               {
+                   tableName = "H01RAW_202511"; 
+               }
+            }
+
+            var confirm = MessageBox.Show($"Create/Update MONITOR_DCP from {tableName}?\n\nTarget Database: {connection.Database}\nSource: REMOTE2.NSDB", 
+                                          "Confirm Update", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (confirm != DialogResult.Yes) return;
+
+            // SQL Logic:
+            // 1. Drop existing MONITOR_DCP in LOCAL DB
+            // 2. Insert distinct Data from REMOTE DB
+            
+            string query = $@"
+                IF OBJECT_ID('dbo.MONITOR_DCP', 'U') IS NOT NULL
+                    DROP TABLE dbo.MONITOR_DCP;
+
+                WITH RankedData AS (
+                    SELECT 
+                        R.*,
+                        ROW_NUMBER() OVER (PARTITION BY R.DCP_ID ORDER BY R.DT DESC) as rn
+                    FROM REMOTE2.NSDB.dbo.[{tableName}] R
+                )
+                SELECT 
+                    D.Name,
+                    D.ID, 
+                    R.*
+                INTO dbo.MONITOR_DCP
+                FROM RankedData R
+                LEFT JOIN REMOTE2.NSDB.dbo.DCP D ON R.DCP_ID = D.ID
+                WHERE R.rn = 1
+                ORDER BY R.DT DESC, R.DCP_ID ASC;
+            ";
+
+            using (SqlCommand cmd = new SqlCommand(query, connection))
+            {
+                cmd.CommandTimeout = 300; 
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            labelStatus.Text = $"✅ Created MONITOR_DCP from {tableName} in {connection.Database}!";
+            MessageBox.Show($"Successfully created MONITOR_DCP in database '{connection.Database}'.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+            // Refresh list might not show the new table if we are only listing REMOTE tables
+            // But the user might want to see it.
+            // existing LoadAllTablesAsync queries REMOTE2.NSDB.INFORMATION_SCHEMA...
+            // So if we created it LOCALLY, it won't show up in the list unless we change LoadAllTablesAsync.
+            // For now, I will not change LoadAllTablesAsync logic to avoid breaking existing view, 
+            // but I will notify the user.
+        }
+        catch (Exception ex)
+        {
+            labelStatus.Text = $"❌ Error: {ex.Message}";
+            MessageBox.Show($"Failed to update MONITOR_DCP:\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private async Task<bool> TableExistsAsync(string tableName)
+    {
+        try 
+        {
+            // Check existence in REMOTE DB
+            string query = $"SELECT COUNT(*) FROM REMOTE2.NSDB.INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = @tableName";
+            using (SqlCommand cmd = new SqlCommand(query, connection))
+            {
+                cmd.Parameters.AddWithValue("@tableName", tableName);
+                int count = (int)(await cmd.ExecuteScalarAsync() ?? 0);
+                return count > 0;
+            }
+        } 
+        catch 
+        { 
+            return false; 
+        }
     }
 
     private void Form1_FormClosing(object sender, FormClosingEventArgs e)
