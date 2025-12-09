@@ -14,7 +14,12 @@ public partial class MainForm : Form
     private Label labelLastUpdate;
     private Panel headerPanel;
     private Panel statusPanel;
+    private Panel sidebarPanel;
+    private FlowLayoutPanel checkboxPanel;
+    private Label sidebarTitle;
     private Dictionary<int, SensorCard> sensorCards = new();
+    private Dictionary<int, CheckBox> sensorCheckboxes = new();
+    private HashSet<int> activeRawIds = new();
 
     public MainForm()
     {
@@ -94,6 +99,40 @@ public partial class MainForm : Form
 
         this.Controls.Add(statusPanel);
 
+        // Sidebar Panel (Left)
+        sidebarPanel = new Panel
+        {
+            Dock = DockStyle.Left,
+            Width = 250,
+            BackColor = Color.FromArgb(22, 22, 32),
+            Padding = new Padding(10)
+        };
+
+        sidebarTitle = new Label
+        {
+            Text = "📋 센서 목록",
+            Font = new Font("Segoe UI Semibold", 14F),
+            ForeColor = Color.FromArgb(100, 180, 255),
+            Dock = DockStyle.Top,
+            Height = 40,
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+        sidebarPanel.Controls.Add(sidebarTitle);
+
+        checkboxPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoScroll = true,
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            BackColor = Color.FromArgb(22, 22, 32),
+            Padding = new Padding(5)
+        };
+        sidebarPanel.Controls.Add(checkboxPanel);
+        checkboxPanel.BringToFront();
+
+        this.Controls.Add(sidebarPanel);
+
         // FlowLayoutPanel for sensor cards
         sensorPanel = new FlowLayoutPanel
         {
@@ -106,9 +145,10 @@ public partial class MainForm : Form
 
         this.Controls.Add(sensorPanel);
 
-        // Bring panels to front
+        // Bring panels to front (order matters for docking)
         headerPanel.BringToFront();
         statusPanel.BringToFront();
+        sidebarPanel.BringToFront();
     }
 
     private void SetupTimer()
@@ -142,6 +182,9 @@ public partial class MainForm : Form
             labelStatus.Text = $"✅ 연결됨 (DB: {connection.Database})";
             labelStatus.ForeColor = Color.FromArgb(100, 200, 100);
 
+            // Load sidebar checkboxes
+            await LoadSidebarAsync();
+
             await RefreshDataAsync();
         }
         catch (Exception ex)
@@ -151,6 +194,109 @@ public partial class MainForm : Form
         }
     }
 
+    private async Task LoadSidebarAsync()
+    {
+        if (connection == null || connection.State != ConnectionState.Open)
+            return;
+
+        try
+        {
+            // 1) Get current month's table name
+            string currentMonthTable = $"H01RAW_{DateTime.Now:yyyyMM}";
+
+            // 2) Get all active DCP_IDs from current month's RAW table
+            activeRawIds.Clear();
+            string rawQuery = $@"
+                SELECT DISTINCT [DCP_ID] 
+                FROM REMOTE2.NSDB.dbo.[{currentMonthTable}] WITH (NOLOCK)
+            ";
+
+            try
+            {
+                using var cmdRaw = new SqlCommand(rawQuery, connection) { CommandTimeout = 30 };
+                using var readerRaw = await cmdRaw.ExecuteReaderAsync();
+                while (await readerRaw.ReadAsync())
+                {
+                    if (!readerRaw.IsDBNull(0))
+                        activeRawIds.Add(readerRaw.GetInt32(0));
+                }
+            }
+            catch
+            {
+                // Table might not exist yet, try previous month
+                string prevMonthTable = $"H01RAW_{DateTime.Now.AddMonths(-1):yyyyMM}";
+                rawQuery = $@"
+                    SELECT DISTINCT [DCP_ID] 
+                    FROM REMOTE2.NSDB.dbo.[{prevMonthTable}] WITH (NOLOCK)
+                ";
+                try
+                {
+                    using var cmdRaw = new SqlCommand(rawQuery, connection) { CommandTimeout = 30 };
+                    using var readerRaw = await cmdRaw.ExecuteReaderAsync();
+                    while (await readerRaw.ReadAsync())
+                    {
+                        if (!readerRaw.IsDBNull(0))
+                            activeRawIds.Add(readerRaw.GetInt32(0));
+                    }
+                }
+                catch { /* Ignore if both fail */ }
+            }
+
+            // 3) Get all sensors from DCP table
+            const string dcpQuery = @"
+                SELECT [ID], [Name] 
+                FROM REMOTE2.NSDB.dbo.DCP 
+                ORDER BY [ID]
+            ";
+
+            using var cmd = new SqlCommand(dcpQuery, connection) { CommandTimeout = 30 };
+            using var reader = await cmd.ExecuteReaderAsync();
+
+            // Clear existing checkboxes
+            checkboxPanel.Controls.Clear();
+            sensorCheckboxes.Clear();
+
+            while (await reader.ReadAsync())
+            {
+                int id = reader.GetInt32(0);
+                string name = reader.IsDBNull(1) ? $"센서 {id}" : reader.GetString(1);
+
+                bool isActive = activeRawIds.Contains(id);
+
+                var checkbox = new CheckBox
+                {
+                    Text = $"{name}",
+                    Tag = id,
+                    Checked = isActive,
+                    Enabled = isActive,
+                    AutoSize = false,
+                    Width = 220,
+                    Height = 28,
+                    Font = new Font("Segoe UI", 9F),
+                    ForeColor = isActive ? Color.FromArgb(200, 200, 210) : Color.FromArgb(100, 100, 110),
+                    Margin = new Padding(2)
+                };
+
+                // Hover effect
+                if (isActive)
+                {
+                    checkbox.MouseEnter += (s, e) => checkbox.ForeColor = Color.FromArgb(100, 180, 255);
+                    checkbox.MouseLeave += (s, e) => checkbox.ForeColor = Color.FromArgb(200, 200, 210);
+                }
+
+                sensorCheckboxes[id] = checkbox;
+                checkboxPanel.Controls.Add(checkbox);
+            }
+
+            // Update sidebar title with count
+            sidebarTitle.Text = $"📋 센서 목록 ({activeRawIds.Count}/{sensorCheckboxes.Count})";
+        }
+        catch (Exception ex)
+        {
+            sidebarTitle.Text = $"📋 센서 목록 (오류)";
+            System.Diagnostics.Debug.WriteLine($"Sidebar load error: {ex.Message}");
+        }
+    }
 
     private static int SafeCountStatus(DataTable dt, string columnName, int code)
     {
